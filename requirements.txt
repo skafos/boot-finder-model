@@ -1,0 +1,6 @@
+skafossdk==1.2.1
+turicreate==5.3.1
+coremltools==2.1.0
+numpy==1.16.1
+s3fs==0.1.6
+pandas==0.23.4
