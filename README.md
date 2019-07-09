@@ -34,7 +34,7 @@ The data ingest portion of `zappos.py` scrapes all available boots from the list
 
 Once all data has been scraped, the script checks the most recent available dataset saved to S3 to see if enough new boots have been added to the Zappos inventory to justify a model retrain. `retrain_threshold` is a variable in the code that specifies the number of new boots needed to trigger a model retrain. Currently, this number is set to 1. 
 
-Before model retraining, all metadata and boot images are persisted to an s3 bucket with a timestamp dataset id. This timeset uniquely identifies the set of boot images and metadata used the train the model. 
+Before model retraining, all metadata and boot images are persisted to an s3 bucket with a timestamp dataset id. This timestamp uniquely identifies the set of boot images and metadata used to train the model. 
 
 ## Model Training
 Following the image and metadata upload to s3, the code uses these boot images trains a Turi Create Image Similarity model. Once trained, the model is converted to CoreML, saved back s3 along with the data and metadata, and uploaded to the Skafos platform.
