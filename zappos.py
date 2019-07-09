@@ -48,7 +48,7 @@ def upload_boots_to_s3(s3, meta_data):
     with s3.open(bucket + dataset + '/' + meta, 'w') as f:
         f.write(json.dumps(meta_data))
     # Write new images to s3
-    print("Uploading images to s3", flush=True)
+    print("Fetching and Saving images to s3", flush=True)
     for img in tqdm(meta_data):
         with s3.open(bucket + dataset + img_path + img['boot_id'], 'wb') as f:
             f.write(requests.get(img['image_source']).content)
@@ -64,7 +64,7 @@ def retrain_image_similarity_model(s3, dataset, meta_data):
     # List out boots
     boots = s3.ls("s3://skafos.bootfinder/{}/boot_images/".format(dataset))
     # Download boot images from s3
-    print("Downloading boot images to train", flush=True)
+    print("Pulling boot images to train model", flush=True)
     for b in tqdm(boots):
         _local_file = "/".join(b.split("/")[-1:])
         _local_path = _local_dir + "/" + _local_file
@@ -136,12 +136,12 @@ if __name__ == "__main__":
                         'buy_link': base_url + buy_link.strip('/')
                     })
         if valid_page_links == 0:
-            print("..No more valid boot links found. Done ingesting.", flush=True)
+            print("..No more valid boot links found. Done ingesting.\n", flush=True)
             break
         n += 1
 
     # Sort and organize meta data and newly collected boot ids
-    new_meta_data = sorted(metnew_meta_dataa_data, key=lambda k: k['boot_id'])
+    new_meta_data = sorted(new_meta_data, key=lambda k: k['boot_id'])
     new_boot_ids = set([boot['boot_id'] for boot in new_meta_data])
     assert len(new_meta_data) == len(new_boot_ids)
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     ## Step 3: If we have enough new ones, retrain the model ##
     print("Found {} new boots since last ingest!".format(len(new_skews)), flush=True)
     if len(new_skews) >= retrain_threshold:
-        print("New boots: {}".format(new_skews), flush=True)
+        print("New boots: {}\n".format(new_skews), flush=True)
 
         # Upload data to s3
         new_dataset = upload_boots_to_s3(s3, new_meta_data)

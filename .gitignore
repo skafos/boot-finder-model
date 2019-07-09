@@ -2,3 +2,7 @@
 *.mlmodel
 *.model
 *.idea/
+*.json
+boot_images/*
+*.mlmodel
+*.zip
