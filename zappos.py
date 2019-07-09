@@ -77,22 +77,22 @@ def retrain_image_similarity_model(s3, dataset, meta_data):
     return model
 
 
-def upload_model_to_s3(s3, dataset, coreml_model_name, new_skews):
+def upload_model_to_s3(s3, dataset, coreml_model_name, new_skus):
     print("\nUploading trained model to s3", flush=True)
     with open(coreml_model_name, 'rb') as model_data:
         with s3.open(bucket + dataset + '/' + coreml_model_name, 'wb') as f:
             f.write(model_data.read())
-    print("Uploading list of new skews included in the model since last run")
-    with s3.open(bucket + dataset + '/new_skews.json', 'w') as f:
-        f.write(json.dumps(new_skews))
+    print("Uploading list of new skus included in the model since last run")
+    with s3.open(bucket + dataset + '/new_skus.json', 'w') as f:
+        f.write(json.dumps(new_skus))
 
 
-def upload_model_to_skafos(dataset, new_skews):
+def upload_model_to_skafos(dataset, new_skus):
     # Uses API Token, Org Name Env Vars
     print("\nUploading trained model and meta data to skafos", flush=True)
     res = models.upload_version(
         files=[coreml_model_name, meta],
-        description="Dataset: {}. {} new boots included.".format(dataset, len(new_skews)),
+        description="Dataset: {}. {} new boots included.".format(dataset, len(new_skus)),
         model_name=model_name,
         app_name=app_name
     )
@@ -150,14 +150,14 @@ if __name__ == "__main__":
     previous_dataset = sorted([file.split('/')[1] for file in s3.ls(bucket)], key=lambda k: datetime.strptime(k, DATASET_ID_FORMAT), reverse=True)[0]
     previous_boot_ids = set(img.split('/')[-1] for img in s3.ls(bucket + previous_dataset + img_path))
 
-    # Extract the new skews since last ingest
-    new_skews = [boot['image_source'] for skew in new_boot_ids.difference(previous_boot_ids) for boot in new_meta_data if skew == boot['boot_id']]
+    # Extract the new skus since last ingest
+    new_skus = [boot['image_source'] for sku in new_boot_ids.difference(previous_boot_ids) for boot in new_meta_data if sku == boot['boot_id']]
 
 
     ## Step 3: If we have enough new ones, retrain the model ##
-    print("Found {} new boots since last ingest!".format(len(new_skews)), flush=True)
-    if len(new_skews) >= retrain_threshold:
-        print("New boots: {}\n".format(new_skews), flush=True)
+    print("Found {} new boots since last ingest!".format(len(new_skus)), flush=True)
+    if len(new_skus) >= retrain_threshold:
+        print("New boots: {}\n".format(new_skus), flush=True)
 
         # Upload data to s3
         new_dataset = upload_boots_to_s3(s3, new_meta_data)
@@ -170,10 +170,10 @@ if __name__ == "__main__":
         new_model.export_coreml(coreml_model_name)
 
         # Upload model to s3
-        upload_model_to_s3(s3, new_dataset, coreml_model_name, new_skews)
+        upload_model_to_s3(s3, new_dataset, coreml_model_name, new_skus)
 
         # Upload model to Skafos
-        res = upload_model_to_skafos(new_dataset, new_skews)
+        res = upload_model_to_skafos(new_dataset, new_skus)
         print(res)
     else:
         # Do nothing - close out
