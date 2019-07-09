@@ -28,7 +28,9 @@ coreml_model_name = model_name + ".mlmodel"
 app_name = "BootFinder"
 
 # Data containers
+meta_data = []
 new_meta_data = []
+new_boot_ids = set()
 
 # S3 Filesystem
 s3 = s3fs.S3FileSystem(anon=False)
@@ -125,7 +127,7 @@ if __name__ == "__main__":
                     if rating:
                         rating = rating.group(1)
                     # Append items to the meta dictionary one by one (zero indexed)
-                    new_meta_data.append({
+                    meta_data.append({
                         'boot_id': _id,
                         'boot_name': aria_label.split('. By')[0],
                         'brand': re.search("By (.*?) \$", aria_label).group(1).strip('.'),
@@ -141,9 +143,16 @@ if __name__ == "__main__":
         n += 1
 
     # Sort and organize meta data and newly collected boot ids
-    new_meta_data = sorted(new_meta_data, key=lambda k: k['boot_id'])
-    new_boot_ids = set([boot['boot_id'] for boot in new_meta_data])
-    assert len(new_meta_data) == len(new_boot_ids)
+    if not meta_data:
+        sys.exit("No boots found.. packing up and going home.")
+    # Clean out potential duplicates
+    print("Checking for duplicates..", flush=True)
+    for d in meta_data:
+         if d['boot_id'] not in new_boot_ids:
+             new_boot_ids.add(d['boot_id'])
+             new_meta_data.append(d)
+    new_meta_data = sorted(new_meta_data, key=lambda d: d['boot_id'])
+    assert len(new_meta_data) == len(new_boot_ids), "Meta Data and IDs don't match!! Don't go any further."
 
 
     ## Step 2: Check to see how many new boots we have since last ingest ##
@@ -173,8 +182,8 @@ if __name__ == "__main__":
         upload_model_to_s3(s3, new_dataset, coreml_model_name, new_skus)
 
         # Upload model to Skafos
-        res = upload_model_to_skafos(new_dataset, new_skus)
-        print(res)
+        #res = upload_model_to_skafos(new_dataset, new_skus)
+        #print(res)
     else:
         # Do nothing - close out
         sys.exit("Not enough new boots.. Packing up and going home.")
