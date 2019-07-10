@@ -182,8 +182,8 @@ if __name__ == "__main__":
         upload_model_to_s3(s3, new_dataset, coreml_model_name, new_skus)
 
         # Upload model to Skafos
-        #res = upload_model_to_skafos(new_dataset, new_skus)
-        #print(res)
+        res = upload_model_to_skafos(new_dataset, new_skus)
+        print(res)
     else:
         # Do nothing - close out
         sys.exit("Not enough new boots.. Packing up and going home.")
