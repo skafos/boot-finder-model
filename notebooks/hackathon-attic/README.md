@@ -1,0 +1,1 @@
+Notebooks in this subdirectory are from the original bootfinder prototype, built for the AML Hackathon in March 2019. They informed the creation of the updated model, but are not used in the current build and run process. 
