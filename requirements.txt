@@ -1,0 +1,8 @@
+BeautifulSoup4
+s3fs
+requests
+tqdm
+skafos
+turicreate==5.6
+pandas
+numpy
