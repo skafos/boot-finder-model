@@ -9,7 +9,6 @@ This repository contains the following files:
 * `zappos.py`: The script that executes the data ingest, model training, and export.
 * `requirements.txt`: Python libraries necessary to run `zappos.py`
 * `Dockerfile`: The Dockerfile needed for the Skafos team to containerize and run `zappos.py` at the appropriate scheduled time each week. 
-* `notebooks/`: A folder of notebooks used for testing a protyping pipeline and model building updates.
 * `README.md`: This README file
 
 ## Data Ingest and Validation
