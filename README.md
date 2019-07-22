@@ -1,5 +1,10 @@
 # Boot Finder Data and ML Training Pipeline
 
+This is the model building code for the Skafos Boot Finder App. 
+
+* [App Source Code](https://github.com/skafos/BootFinder)
+* [App Available on the App Store](https://apps.apple.com/us/app/boot-finder/id1472790615?ls=1) 
+
 ## Overview
 
 This repository contains code that ingests data from the zappos.com website, uses it to build an image similarity model, and then stores the model, and its associated data and metadata (in the form of a .json file) on S3. The code also exports the model and metadata to Skafos for inclusion in the Skafos BootFinder app. The BootFinder app enables users to photograph a picture of a pair of boots, and the image similarity model identifies the most similar boots currently available on zappos.com, along with a link to purchase. 
