@@ -207,7 +207,7 @@ if __name__ == "__main__":
         print(res)
     else:
         # Do nothing - close out
-        sys.exit("Not enough new boots.. Packing up and going home.")
+        sys.exit(0)
 
 
     print("\nDone.", flush=True)
