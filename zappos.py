@@ -16,8 +16,8 @@ DATASET_ID_FORMAT = "%Y%m%d%H%M%S"
 BASE_URL = "https://www.zappos.com/"
 WOMENS_BOOTS_URL = BASE_URL + "women-boots/CK_XARCz1wHAAQHiAgMBAhg.zso"
 
-S3_OUTPUT_BUCKET = "skafos.bootfinder/"
-IMG_PATH = "images/"
+S3_OUTPUT_BUCKET = "skafos.bootfinder"
+IMG_PATH = "input_images/"
 IMG_ZIPFILE = "input_images.zip"
 META_FILE = "image-metadata.json"
 
