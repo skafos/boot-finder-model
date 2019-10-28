@@ -1,8 +1,5 @@
 BeautifulSoup4
-s3fs
+boto3
 requests
 tqdm
-skafos
-turicreate==5.6
-pandas
 numpy
