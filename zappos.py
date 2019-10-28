@@ -11,22 +11,15 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 
-try:
-    s3_output_bucket = os.environ["OUTPUT_BUCKET"]
-except:
-    print("Error getting environment variables", flush=True)
-    sys.exit(1)
-
-
 # Some constants
 DATASET_ID_FORMAT = "%Y%m%d%H%M%S"
 BASE_URL = "https://www.zappos.com/"
 WOMENS_BOOTS_URL = BASE_URL + "women-boots/CK_XARCz1wHAAQHiAgMBAhg.zso"
 
-
+S3_OUTPUT_BUCKET = "skafos.bootfinder/"
 IMG_PATH = "images/"
 IMG_ZIPFILE = "input_images.zip"
-META_FILE = "product-metadata.json"
+META_FILE = "image-metadata.json"
 
 
 def check_create_dir(dir_name: str):
@@ -61,9 +54,6 @@ class Zappos:
         self.boot_ids = set()
         self.dataset_id = datetime.now().strftime(DATASET_ID_FORMAT)
 
-    def _add(self, boot):
-        self.boots.append(boot)
-
     def scrape(self):
         n = 1
         while True:
@@ -87,7 +77,7 @@ class Zappos:
                         rating = re.search("Rated (.*?)\.", aria_label)
                         if rating:
                             rating = rating.group(1)
-                        # Append items to the meta dictionary one by one (zero indexed)
+                        # Create a boot and add to list
                         boot = Boot(boot_id=_id,
                                     rating=rating,
                                     buy_link=BASE_URL + buy_link.strip('/'),
@@ -95,9 +85,9 @@ class Zappos:
                                     label=aria_label)
                         res = boot.download()
                         if res:
-                            self._add(boot)
+                            self.boots.append(boot)
             if valid_page_links == 0:
-                print("..No more valid boot links found. Done ingesting.\n", flush=True)
+                print("No more valid boot links found. Done ingesting.\n", flush=True)
                 break
             n += 1
 
@@ -115,7 +105,7 @@ class Zappos:
         with ZipFile(IMG_ZIPFILE, 'w') as zipf:
             for f in os.listdir(IMG_PATH):
                 if not f.startswith("."):
-                    zipf.write(f)
+                    zipf.write(IMG_PATH + f)
 
     def _write_file_s3(self, bucket, filepath):
         obj = self.dataset_id + "/" + filepath
@@ -142,5 +132,5 @@ if __name__ == "__main__":
 
     zappos = Zappos()
     zappos.scrape()
-    zappos.upload_boots(bucket=s3_output_bucket)
+    zappos.upload_boots(bucket=S3_OUTPUT_BUCKET)
     print("Done.", flush=True)
