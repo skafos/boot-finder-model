@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 try:
     s3_output_bucket = os.environ["OUTPUT_BUCKET"]
 except:
-    print("Error getting environment vairables", flush=True)
+    print("Error getting environment variables", flush=True)
     sys.exit(1)
 
 
