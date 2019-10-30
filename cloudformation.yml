@@ -1,0 +1,298 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Scrape boots and save data to S3 via scheduled Fargate task.
+
+Parameters:
+  ImageURL:
+    Type: String
+    Description: The url of a docker image that contains the application process that
+      will handle the traffic for this service
+  TaskCpu:
+    Type: Number
+    Default: 512
+    Description: How much CPU to give the container. 1024 is 1 CPU
+  TaskMemory:
+    Type: Number
+    Default: 4096
+    Description: How much memory in megabytes to give the container
+  DesiredCount:
+    Type: Number
+    Default: 0
+    Description: How many copies of the service task to run
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+    DependsOn: InternetGatewayAttachment
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: "10.0.0.0/24"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Public Subnet
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  NatGatewayIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+    DependsOn: InternetGatewayAttachment
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName} NAT Gateway'
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: "10.0.1.0/24"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Private Subnet
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateNATGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+  DefaultSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows traffic from office and within this group
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 216.197.64.232/32
+          Description: Office
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: Allow Office
+
+  SecurityGroupIngressDefaultRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Allows traffic from within this security group
+      GroupId: !GetAtt DefaultSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt DefaultSecurityGroup.GroupId
+      IpProtocol: -1
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+
+  FargateContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the Fargate containers
+      VpcId: !Ref VPC
+
+  # This is a role which is used by ECS.
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'ecs-tasks.amazonaws.com'
+          Action:
+            - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: AmazonECSTaskExecutionRolePolicy
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action:
+                # Allow the ECS Tasks to download images from ECR
+                - 'ecr:GetAuthorizationToken'
+                - 'ecr:BatchCheckLayerAvailability'
+                - 'ecr:GetDownloadUrlForLayer'
+                - 'ecr:BatchGetImage'
+
+                # Allow the ECS tasks to upload logs to CloudWatch
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+              Resource: '*'
+  # This is a role which is used by the container.
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'ecs-tasks.amazonaws.com'
+          Action:
+            - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: AmazonECSTaskRoleS3Policy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                Resource: !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - 'skafos.bootfinder'
+                    - /*
+
+  BootfinderTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: !Ref AWS::StackName
+          Command:
+            - python
+            - zappos.py
+          Image: !Ref ImageURL
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref AWS::StackName
+      RetentionInDays: 365
+
+  CloudWatchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'A rule to trigger bootfinder fargate task'
+      Name: !Ref AWS::StackName
+      State: 'ENABLED'
+      ScheduleExpression: 'cron(0 0 * * ? *)'
+      Targets:
+        - Arn: !GetAtt ECSCluster.Arn
+          Id: 'FargateTarget'
+          RoleArn: !GetAtt CloudWatchTriggerFargateTaskRole.Arn
+          EcsParameters:
+            TaskCount: 1
+            TaskDefinitionArn: !Ref BootfinderTaskDefinition
+            LaunchType: 'FARGATE'
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                AssignPublicIp: ENABLED
+                SecurityGroups:
+                  - !Ref FargateContainerSecurityGroup
+                Subnets:
+                  - !Ref PublicSubnet
+
+  CloudWatchTriggerFargateTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: allowLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:*'
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: allowECSTasks
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecs:RunTask'
+                  - 'ecs:StopTask'
+                  - 'ecs:DescribeTasks'
+                Resource: '*'
+        - PolicyName: allowECSTaskExecutionRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !GetAtt ECSTaskExecutionRole.Arn
+        - PolicyName: allowECSTaskRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !GetAtt ECSTaskRole.Arn
+
