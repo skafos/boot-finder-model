@@ -278,7 +278,7 @@ Resources:
                   - 'ecs:RunTask'
                   - 'ecs:StopTask'
                   - 'ecs:DescribeTasks'
-                Resource: '*'
+                Resource: !Ref BootfinderTaskDefinition
         - PolicyName: allowECSTaskExecutionRole
           PolicyDocument:
             Version: '2012-10-17'
