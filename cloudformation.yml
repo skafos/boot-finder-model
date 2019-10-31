@@ -232,7 +232,7 @@ Resources:
       Description: 'A rule to trigger bootfinder fargate task'
       Name: !Ref AWS::StackName
       State: 'ENABLED'
-      ScheduleExpression: 'cron(0 0 * * ? *)'
+      ScheduleExpression: 'cron(0 0 ? * SUN *)'
       Targets:
         - Arn: !GetAtt ECSCluster.Arn
           Id: 'FargateTarget'
